@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CyberAssist AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #e0eafc, #cfdef3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #chat-container {
+      width: 95%;
+      max-width: 700px;
+      height: 90vh;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #chatbox {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: transparent;
+    }
+    .message {
+      max-width: 75%;
+      padding: 14px 18px;
+      font-size: 15px;
+      border-radius: 20px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .user {
+      align-self: flex-end;
+      background: linear-gradient(to right, #00c6ff, #0072ff);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .bot {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.8);
+      color: #333;
+      border-bottom-left-radius: 4px;
+      border: 1px solid #e3e3e3;
+    }
+    .typing {
+      font-style: italic;
+      font-size: 14px;
+      color: #888;
+    }
+    #input-container {
+      display: flex;
+      padding: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+    #message-input {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 15px;
+      border-radius: 12px;
+      border: none;
+      outline: none;
+      resize: none;
+      height: 48px;
+      max-height: 100px;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+    #send-button {
+      margin-left: 12px;
+      padding: 0 20px;
+      border: none;
+      border-radius: 12px;
+      background: #007bff;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    #send-button:hover {
+      background: #0056b3;
+    }
+
+    strong {
+      font-weight: 600;
+    }
+
+    @media (max-width: 600px) {
+      #chat-container {
+        height: 95vh;
+        border-radius: 0;
+      }
+      #input-container {
+        padding: 12px;
+      }
+      #message-input {
+        font-size: 14px;
+      }
+      #send-button {
+        padding: 0 16px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div id="chat-container">
+  <h1 style="text-align: center; padding: 16px 0; margin: 0; font-size: 24px; font-weight: 600; background: rgba(255, 255, 255, 0.2); border-bottom: 1px solid rgba(255,255,255,0.3);">Cyber Assistant</h1>
+  <div id="chatbox"></div>
+  <div id="input-container">
+    <textarea id="message-input" placeholder="Type a message... (Shift+Enter for newline)"></textarea>
+    <button id="send-button">Send</button>
+  </div>
+</div>
+
+<script>
+  const sendMessage = async (message) => {
+    displayMessage("Typing...", 'typing');
+    try {
+      const response = await fetch('http://localhost:8000/chat/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      removeTyping();
+      const data = await response.json();
+
+      if (data.response && data.response.trim()) {
+        displayMessage(data.response, 'bot');
+      } else {
+        displayMessage("Sorry, I didn't understand that.", 'bot');
+      }
+    } catch (err) {
+      removeTyping();
+      displayMessage("Error connecting to the server.", 'bot');
+    }
+  };
+
+  const formatMessage = (text) => {
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const withLineBreaks = escaped.replace(/\n/g, '<br>');
+    const withBold = withLineBreaks.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    return withBold;
+  };
+
+  const displayMessage = (message, sender) => {
+    const chatbox = document.getElementById('chatbox');
+
+    if (sender === 'typing') {
+      const typingElem = document.createElement('div');
+      typingElem.className = 'message bot typing';
+      typingElem.innerHTML = formatMessage(message);
+      chatbox.appendChild(typingElem);
+    } else {
+      const messageElem = document.createElement('div');
+      messageElem.className = `message ${sender}`;
+      messageElem.innerHTML = formatMessage(message);
+      chatbox.appendChild(messageElem);
+    }
+
+    chatbox.scrollTop = chatbox.scrollHeight;
+  };
+
+  const removeTyping = () => {
+    document.querySelectorAll('.typing').forEach(el => el.remove());
+  };
+
+  document.getElementById('send-button').addEventListener('click', () => {
+    const input = document.getElementById('message-input');
+    const message = input.value;
+    if (message.trim()) {
+      displayMessage(message, 'user');
+      input.value = '';
+      sendMessage(message);
+    }
+  });
+
+  // Enter to send, Shift+Enter for newline
+  document.getElementById('message-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('send-button').click();
+    }
+  });
+</script>
+
+</body>
+</html>
